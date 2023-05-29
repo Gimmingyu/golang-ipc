@@ -1,40 +1,35 @@
 package main
 
 import (
-	"golang-ipc/pkg/ipc"
-	"golang-ipc/pkg/types"
+	"fmt"
+	"golang-ipc/pkg/udp"
 	"log"
 	"net"
+	"time"
 )
 
-type Server struct {
-	listener net.Listener
-}
-
-func (s *Server) PrintOut(args *types.Args, result *types.Resp) error {
-
-	log.Println(args.Msg)
-
-	result.Success = true
-	return nil
-}
-
-func (s *Server) Listen() {
-	ipc.Listen(s.listener)
-}
-
 func main() {
-
-	listener, err := net.Listen("tcp", ":4040")
+	server, err := udp.Listen(5050)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	server := &Server{listener: listener}
+	defer server.Close()
 
-	if err := ipc.RegisterServer(server); err != nil {
-		log.Fatal(err)
+	for {
+		buf := make([]byte, 1024)
+		_, addr, err := server.ReadFrom(buf)
+		if err != nil {
+			continue
+		}
+
+		go UdpResp(buf, server, addr)
 	}
+}
 
-	server.Listen()
+func UdpResp(buf []byte, server *net.UDPConn, addr net.Addr) {
+	time := time.Now().Format(time.ANSIC)
+	responseStr := fmt.Sprintf("time received: %v. Your message: %v!", time, string(buf))
+
+	server.WriteTo([]byte(responseStr), addr)
 }

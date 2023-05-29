@@ -1,38 +1,42 @@
 package main
 
 import (
-	"golang-ipc/pkg/ipc"
-	"golang-ipc/pkg/types"
 	"log"
-	"net/rpc"
+	"net"
 	"os"
 )
 
-type Client struct {
-	conn *rpc.Client
-}
-
-func (c *Client) Dial() {
-	c.conn = ipc.Dial()
-}
-
-func (c *Client) Call(method string, args interface{}, result interface{}) error {
-	return ipc.Call(c.conn, method, args, result)
-}
-
 func main() {
-
-	os.Setenv("IPC_PORT", "4040")
-
-	client := &Client{}
-	client.Dial()
-
-	args := &types.Args{Msg: "hello"}
-	resp := &types.Resp{}
-
-	if err := client.Call("Server.PrintOut", args, resp); err != nil {
-		log.Fatal("Server.PrintOut failed", err)
+	udpServer, err := net.ResolveUDPAddr("udp", ":5050")
+	if err != nil {
+		println("ResolveUDPAddr failed:", err.Error())
+		os.Exit(1)
 	}
 
-	log.Println(resp.Success)
+	log.Println(udpServer)
+
+	conn, err := net.DialUDP("udp", nil, udpServer)
+	if err != nil {
+		println("Listen failed:", err.Error())
+		os.Exit(1)
+	}
+
+	//close the connection
+	defer conn.Close()
+
+	_, err = conn.Write([]byte("This is a UDP message"))
+	if err != nil {
+		println("Write data failed:", err.Error())
+		os.Exit(1)
+	}
+
+	// buffer to get data
+	received := make([]byte, 1024)
+	_, err = conn.Read(received)
+	if err != nil {
+		println("Read data failed:", err.Error())
+		os.Exit(1)
+	}
+
+	println(string(received))
 }
